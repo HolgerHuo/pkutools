@@ -50,7 +50,7 @@ export async function quickFinish(options: NELETOptions) {
         'x-requested-with': 'XMLHttpRequest',
         cookie: COOKIE,
         Referer:
-          'http://www.pupedu.cn/app/coursepacket/student/toCoursePacketDetail',
+          'https://www.pupedu.cn/app/coursepacket/student/toCoursePacketDetail',
         'Referrer-Policy': 'strict-origin-when-cross-origin'
       },
       body: body ? encode(body) : body,
@@ -71,7 +71,7 @@ export async function quickFinish(options: NELETOptions) {
   }
 
   const { data } = await invoke(
-    'http://www.pupedu.cn/app/coursepacket/student/getDirectoryList',
+    'https://www.pupedu.cn/app/coursepacket/student/getDirectoryList',
     {
       coursePacketID: COURSE_PACKET_ID,
       parentID: '0',
@@ -84,7 +84,7 @@ export async function quickFinish(options: NELETOptions) {
     const { cascadeID, coursePacketID, name } = dir
     console.log(`${chalk.blue('INFO')} GROUP ${chalk.whiteBright(name)}`)
     const { data } = await invoke(
-      'http://www.pupedu.cn/app/coursepacket/student/getDirectoryResourceList',
+      'https://www.pupedu.cn/app/coursepacket/student/getDirectoryResourceList',
       {
         directoryId: cascadeID,
         pageNum: '1',
@@ -97,7 +97,7 @@ export async function quickFinish(options: NELETOptions) {
     for (const file of data) {
       const { coursePacketID, directoryCasecadeID, ext, id, name } = file
       console.log(`${chalk.blue('INFO')} ${name}`)
-      const viewUrl = `http://www.pupedu.cn/app/coursepacket/student/toCoursePacketResDetail?id=${id}&dirId=${directoryCasecadeID}&pId=${coursePacketID}&cId=${COURSE_PACKET_CLASS_ID}&from=`
+      const viewUrl = `https://www.pupedu.cn/app/coursepacket/student/toCoursePacketResDetail?id=${id}&dirId=${directoryCasecadeID}&pId=${coursePacketID}&cId=${COURSE_PACKET_CLASS_ID}&from=`
       console.log(`${chalk.blue('INFO')} View at ${viewUrl}`)
       try {
         let type = 'UNKNOWN'
@@ -108,7 +108,7 @@ export async function quickFinish(options: NELETOptions) {
           continue
         }
         const { data } = await invoke(
-          'http://www.pupedu.cn/app/coursepacket/courseware/teacher/viewResourceDetails',
+          'https://www.pupedu.cn/app/coursepacket/courseware/teacher/viewResourceDetails',
           {
             resourceDirectoryId: id,
             coursePacketClassId: COURSE_PACKET_CLASS_ID
@@ -119,7 +119,7 @@ export async function quickFinish(options: NELETOptions) {
         const length = data.pageView?.pageSize ?? data.resource?.duration
         console.log(`${chalk.blue('INFO')} ID=${chalk.whiteBright(resourceID)}`)
 
-        await invokeAsText('http://www.pupedu.cn/app/click/addClick', {
+        await invokeAsText('https://www.pupedu.cn/app/click/addClick', {
           objInfo: JSON.stringify({
             clickedObjId: resourceID,
             clickedObjName: name,
@@ -136,7 +136,7 @@ export async function quickFinish(options: NELETOptions) {
           })
         })
         console.log(`${chalk.blue('INFO')} TYPE=${type} LEN=${length}`)
-        await invoke('http://www.pupedu.cn/statis/saveStudyLog', {
+        await invoke('https://www.pupedu.cn/statis/saveStudyLog', {
           coursePacketId: coursePacketID,
           coursePacketDirId: directoryCasecadeID,
           resourceDirectoryId: id,
