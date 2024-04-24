@@ -10,6 +10,9 @@ export interface NELETOptions {
   coursePacketClassId: string
   coursePacketId: string
   name: string
+  writeComments: boolean
+  commentsCount: number
+  repliesCount: number
 }
 
 export async function quickFinish(options: NELETOptions) {
@@ -18,6 +21,7 @@ export async function quickFinish(options: NELETOptions) {
   const COURSE_PACKET_CLASS_ID = options.coursePacketClassId
   const COURSE_PACKET_ID = options.coursePacketId
   const NAME = options.name
+  const WRITE_COMMENTS = options.writeComments
 
   function encode(obj: any) {
     return Object.entries(obj)
@@ -161,6 +165,105 @@ export async function quickFinish(options: NELETOptions) {
             : {}),
           location: length
         })
+
+        if (WRITE_COMMENTS) {
+          const { data: { recordList } = { recordList: [] } } = await invoke(
+            // @ts-ignore
+            'https://www.pupedu.cn/app/note/getNotesPageView?'+ new URLSearchParams({
+              pageNum: '1',
+              pageSize: '20',
+              resourceId: id,
+              classId: COURSE_PACKET_CLASS_ID,
+              isMy: false,
+              all: false,
+            }), 
+            null,
+            'GET'
+          )
+          
+          const myCommentsCount = await (async () => {
+            const { data: { recordList } = { recordList: [] } } = await invoke(
+              // @ts-ignore
+              'https://www.pupedu.cn/app/note/getNotesPageView?'+ new URLSearchParams({
+                pageNum: '1',
+                pageSize: '20',
+                resourceId: id,
+                classId: COURSE_PACKET_CLASS_ID,
+                isMy: true,
+                all: false,
+              }), 
+              null,
+              'GET'
+            )
+            return recordList.length
+          })()
+
+          const COMMENTS_COUNT = (options.commentsCount || 2) - myCommentsCount
+          const REPLIES_COUNT = options.repliesCount || 5
+
+          if (recordList.length > 0) {
+            const validList = recordList.filter((v: { ['content']: string}, i: number)=> v['content'].length > 10 && recordList.indexOf(v) == i)
+            let comments = []
+            if (validList.length < COMMENTS_COUNT) {
+              console.log(`${chalk.yellow('WARN')} Not enough comment samples`)
+              comments = validList.map((i: { ['content']: string })=>i['content'])
+            } else {
+              for (let step: number = 0; step < COMMENTS_COUNT; step++) {
+                comments.push(validList[step]['content'])
+              }
+            }
+
+            await Promise.all(comments.map(async (comment: string) => {
+              const body = new FormData();
+              body.set('resourceId', id);
+              body.set('classId', COURSE_PACKET_CLASS_ID);
+              body.set('isPublic', 'true')
+              body.set('content', comment)
+              body.set('coursePacketId', COURSE_PACKET_ID)
+              body.set('resourceType', type == 'VIDEO_AUDIO_TYPE' ? "MP4" : "PPTX")
+              if (type != 'VIDEO_AUDIO_TYPE') {
+                body.set('pagePoint', '1')
+                body.set('timePointStr', '1page')
+              } else {
+                const commentTime = length < 86400 ? Math.floor(Math.random() * length) : 86395
+                const commentTimeStr = new Date(1000 * commentTime).toISOString().slice(11, 19)
+                body.set('timePoint', commentTime.toString() )
+                body.set('timePointStr', commentTimeStr)
+              }
+              body.set('dirId', directoryCasecadeID)
+
+              const url = 'https://www.pupedu.cn/app/note/saveNote'
+
+              console.log(`${chalk.green('SAVENOTE')}`)
+
+              await fetch(url, {
+                headers: {
+                  accept: '*/*',
+                  'accept-language': 'en,zh-CN;q=0.9,zh-Hans;q=0.8,zh;q=0.7,ja;q=0.6',
+                  'content-type': 'application/x-www-form-urlencoded; charset=UTF-8',
+                  'x-requested-with': 'XMLHttpRequest',
+                  cookie: COOKIE,
+                  Referer:
+                    'https://www.pupedu.cn/app/coursepacket/student/toCoursePacketDetail',
+                  'Referrer-Policy': 'strict-origin-when-cross-origin'
+                },
+                method: 'POST',
+                // @ts-ignore
+                body: new URLSearchParams(body)
+              })
+            }));
+
+            for (let step = 0; step < REPLIES_COUNT && step < recordList.length; step++) {
+              console.log(`${chalk.green('SAVECOMMENT')}`)
+
+              await invoke('https://www.pupedu.cn/app/note/comments/saveComment',{
+                  noteId: recordList[step]['id'],
+                  content: comments[Math.floor(comments.length * Math.random())]
+                }
+              )
+            }
+          }
+        }
       } catch (err) {
         console.error(err)
         console.log(`${chalk.red('ERR')} Damn it!`)
@@ -177,7 +280,10 @@ export class PKUNELETCourse {
     @Optional() userId: string,
     @Optional() coursePacketClassId: string,
     @Optional() coursePacketId: string,
-    @Optional() name: string
+    @Optional() name: string,
+    @Optional() writeComments: boolean,
+    @Optional() commentsCount: number,
+    @Optional() repliesCount: number
   ) {
     cookie = await ask(cookie, 'text', 'cookie')
     userId = await ask(userId, 'text', 'userId')
@@ -188,12 +294,18 @@ export class PKUNELETCourse {
     )
     coursePacketId = await ask(coursePacketId, 'text', 'coursePacketId')
     name = await ask(name, 'text', 'Your Name')
+    writeComments = await ask(writeComments, 'confirm', 'Post comments?')
+    commentsCount = await ask(commentsCount, 'number', 'How many comments?')
+    repliesCount = await ask(repliesCount, 'number', 'How many replies?')
     await quickFinish({
       cookie,
       userId,
       coursePacketClassId,
       coursePacketId,
-      name
+      name,
+      writeComments,
+      commentsCount,
+      repliesCount
     })
   }
 }
