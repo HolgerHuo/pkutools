@@ -116,7 +116,13 @@ export async function quickFinish(options: NELETOptions) {
         )
         const { resourceDirectory } = data
         const { resourceID } = resourceDirectory
-        const length = data.pageView?.pageSize ?? data.resource?.duration
+
+        let length = data.pageView?.pageSize ?? data.resource?.duration
+        if (!length && type === 'VIDEO_AUDIO_TYPE') {
+          length = Math.floor(Math.random() * 100)
+          console.log(`${chalk.yellow('WARN')} Remote didn't return video length`)
+        }
+
         console.log(`${chalk.blue('INFO')} ID=${chalk.whiteBright(resourceID)}`)
 
         await invokeAsText('https://www.pupedu.cn/app/click/addClick', {
