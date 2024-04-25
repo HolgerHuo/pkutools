@@ -122,7 +122,9 @@ export async function quickFinish(options: NELETOptions) {
         const { resourceID } = resourceDirectory
 
         let length = data.pageView?.pageSize ?? data.resource?.duration
+        let lengthAvailable = true
         if (!length && type === 'VIDEO_AUDIO_TYPE') {
+          lengthAvailable = false
           length = Math.floor(Math.random() * 100)
           console.log(`${chalk.yellow('WARN')} Remote didn't return video length`)
         }
@@ -227,8 +229,8 @@ export async function quickFinish(options: NELETOptions) {
               } else {
                 const commentTime = length < 86400 ? Math.floor(Math.random() * length) : 86395
                 const commentTimeStr = new Date(1000 * commentTime).toISOString().slice(11, 19)
-                body.set('timePoint', commentTime.toString() )
-                body.set('timePointStr', commentTimeStr)
+                body.set('timePoint', lengthAvailable ? commentTime.toString() : '0' )
+                body.set('timePointStr', lengthAvailable ? commentTimeStr : '00:00:00')
               }
               body.set('dirId', directoryCasecadeID)
 
