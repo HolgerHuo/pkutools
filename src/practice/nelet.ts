@@ -175,7 +175,7 @@ export async function quickFinish(options: NELETOptions) {
               resourceId: id,
               classId: COURSE_PACKET_CLASS_ID,
               isMy: false,
-              all: false,
+              all: true,
             }), 
             null,
             'GET'
@@ -190,7 +190,7 @@ export async function quickFinish(options: NELETOptions) {
                 resourceId: id,
                 classId: COURSE_PACKET_CLASS_ID,
                 isMy: true,
-                all: false,
+                all: true,
               }), 
               null,
               'GET'
