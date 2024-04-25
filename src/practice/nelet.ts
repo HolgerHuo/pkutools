@@ -254,13 +254,35 @@ export async function quickFinish(options: NELETOptions) {
             }));
 
             for (let step = 0; step < REPLIES_COUNT && step < recordList.length; step++) {
-              console.log(`${chalk.green('SAVECOMMENT')}`)
+              const NOTE_ID = recordList[step]['id']
 
-              await invoke('https://www.pupedu.cn/app/note/comments/saveComment',{
-                  noteId: recordList[step]['id'],
-                  content: comments[Math.floor(comments.length * Math.random())]
-                }
-              )
+              const hasCommented = await (async () => {
+                const { data: { recordList } = { recordList: [] } } = await invoke(
+                  // @ts-ignore
+                  'https://www.pupedu.cn/app/note/getNotesPageView?'+ new URLSearchParams({
+                    pageNum: '1',
+                    pageSize: '20',
+                    resourceId: id,
+                    classId: COURSE_PACKET_CLASS_ID,
+                    isMy: false,
+                    all: true,
+                  }), 
+                  null,
+                  'GET'
+                )
+                return recordList.map((comment: { ['userId']: string }) => comment['userId']).includes(USER_ID)
+              })()
+
+              if (hasCommented) {
+                console.log(`${chalk.green('Skip Comment')}`)
+              } else {
+                console.log(`${chalk.green('SAVECOMMENT')}`)
+                await invoke('https://www.pupedu.cn/app/note/comments/saveComment',{
+                    noteId: NOTE_ID,
+                    content: comments[Math.floor(comments.length * Math.random())]
+                  }
+                )
+              }
             }
           }
         }
