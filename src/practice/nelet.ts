@@ -1,6 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import chalk from 'chalk'
 import fetch from 'node-fetch'
+import { parse } from 'node-html-parser';
 import { Collection, Method, Optional } from '../base.js'
 import { ask } from '../utils.js'
 
@@ -84,6 +85,7 @@ export async function quickFinish(options: NELETOptions) {
       userId: USER_ID
     }
   )
+  const exams = []
   for (const dir of data) {
     const { cascadeID, coursePacketID, name } = dir
     console.log(`${chalk.blue('INFO')} GROUP ${chalk.whiteBright(name)}`)
@@ -99,7 +101,7 @@ export async function quickFinish(options: NELETOptions) {
       }
     )
     for (const file of data) {
-      const { coursePacketID, directoryCasecadeID, ext, id, name } = file
+      const { coursePacketID, directoryCasecadeID, ext, id, name, resourceReviewStatus, homeworkID, paperID } = file
       console.log(`${chalk.blue('INFO')} ${name}`)
       const viewUrl = `https://www.pupedu.cn/app/coursepacket/student/toCoursePacketResDetail?id=${id}&dirId=${directoryCasecadeID}&pId=${coursePacketID}&cId=${COURSE_PACKET_CLASS_ID}&from=`
       console.log(`${chalk.blue('INFO')} View at ${viewUrl}`)
@@ -107,6 +109,11 @@ export async function quickFinish(options: NELETOptions) {
         let type = 'UNKNOWN'
         if (['MP4'].includes(ext)) type = 'VIDEO_AUDIO_TYPE'
         if (['PPTX'].includes(ext)) type = 'IMAGES_TYPE'
+        if (ext === 'PAPER' && resourceReviewStatus !== '已提交') {
+          exams.push({coursePacketID, directoryCasecadeID, id, homeworkID, paperID })
+          type = 'PAPER'
+          continue
+        }
         if (type === 'UNKNOWN') {
           console.log(`${chalk.yellow('WARN')} Unknown type ${ext}`)
           continue
@@ -223,7 +230,7 @@ export async function quickFinish(options: NELETOptions) {
               body.set('content', comment)
               body.set('coursePacketId', COURSE_PACKET_ID)
               body.set('resourceType', type == 'VIDEO_AUDIO_TYPE' ? "MP4" : "PPTX")
-              if (type != 'VIDEO_AUDIO_TYPE') {
+              if (type !== 'VIDEO_AUDIO_TYPE') {
                 body.set('pagePoint', '1')
                 body.set('timePointStr', '1page')
               } else {
@@ -290,6 +297,100 @@ export async function quickFinish(options: NELETOptions) {
         console.log(`${chalk.red('ERR')} Damn it!`)
       }
     }
+  }
+  if (AUTO_EXAM && exams.length > 0) {
+    await Promise.all(exams.map(async (exam) => {
+      let count = 0
+      try {
+        console.log(`正在自动答题${count}/${exams.length}，大约需要20秒，请耐心等待`)
+        const res = await fetch(`https://www.pupedu.cn/app/coursepacket/preAndSufTest/doPreAndSufTest.do?homewordId=${exam.homeworkID}&resourceDirectoryId=${exam.id}&coursePacketId=${exam.coursePacketID}&paperId=${exam.paperID}&kcbClassId=${COURSE_PACKET_CLASS_ID}`, {
+        headers: {
+          accept: '*/*',
+          'accept-language': 'en,zh-CN;q=0.9,zh-Hans;q=0.8,zh;q=0.7,ja;q=0.6',
+          'x-requested-with': 'XMLHttpRequest',
+          cookie: COOKIE,
+          Referer:
+            'https://www.pupedu.cn/app/coursepacket/student/toCoursePacketDetail',
+          'Referrer-Policy': 'strict-origin-when-cross-origin'
+        },
+        method: 'GET',
+      })
+      const raw = await res.text()
+      const dom = parse(raw)
+
+      let resultContent
+      let resultId: string
+      try {
+        resultId = dom.querySelector('#RESULT_ID').getAttribute('value')
+        dom.querySelectorAll('script').some((scriptRaw: { rawText: () => any; }) => {
+          const script = scriptRaw.rawText()
+          if (script.includes('var tmpResult = [')) {
+            script.split(/\r\n/).some( (line: string) => {
+              if (line.includes('var tmpResult = [')) {
+                resultContent = JSON.parse(line.replace('var tmpResult = ','').trim().slice(0,-1))
+                return true
+              }
+            })
+            return true
+          }
+          
+        })
+      } catch (error) {
+        console.log(`${chalk.yellow('WARN')} Can't get exam answer`)
+      }
+
+      if (resultContent) {
+        // @ts-ignore
+        resultContent = resultContent.map(result=> {
+          return {...result, userAnswer: result['standardAnswer']}
+        })
+
+        const elapsedSecs = Math.floor(Math.random()*60)
+
+        const startDate = new Date
+        startDate.setTime(startDate.getTime() - 1000*elapsedSecs)
+
+        const params = {
+          'userId': USER_ID,
+          // @ts-ignore
+          'id': resultId,
+          'resultContent': JSON.stringify(resultContent),
+          'newStartDate': getTime(startDate.getTime()),
+          'usedTime': new Date(1000 * elapsedSecs).toISOString().slice(11, 19)
+        };
+
+        // @ts-ignore
+        resultContent.forEach(result => {
+          // @ts-ignore
+          params['userAnswer_'+result.qstId] = result['standardAnswer']
+          // @ts-ignore
+          params['standardAnswer_'+result.qstId] = result['standardAnswer']
+        });
+
+        
+
+        await fetch('https://www.pupedu.cn/app/homework/student/savePreAndSufTestResult.do', {
+          headers: {
+            accept: '*/*',
+            'accept-language': 'en,zh-CN;q=0.9,zh-Hans;q=0.8,zh;q=0.7,ja;q=0.6',
+            'content-type': 'application/x-www-form-urlencoded; charset=UTF-8',
+            'x-requested-with': 'XMLHttpRequest',
+            cookie: COOKIE,
+            Referer:
+              'https://www.pupedu.cn/app/coursepacket/student/toCoursePacketDetail',
+            'Referrer-Policy': 'strict-origin-when-cross-origin'
+          },
+          method: 'POST',
+          // @ts-ignore
+          body: new URLSearchParams(params)
+        })
+      }
+      } catch (error) {
+        
+      }
+      count ++
+    }));
+    
   }
 }
 
