@@ -259,13 +259,10 @@ export async function quickFinish(options: NELETOptions) {
               const hasCommented = await (async () => {
                 const { data: { recordList } = { recordList: [] } } = await invoke(
                   // @ts-ignore
-                  'https://www.pupedu.cn/app/note/getNotesPageView?'+ new URLSearchParams({
+                  'https://www.pupedu.cn/app/note/comments/getCommentPageView?'+ new URLSearchParams({
                     pageNum: '1',
-                    pageSize: '20',
-                    resourceId: id,
-                    classId: COURSE_PACKET_CLASS_ID,
-                    isMy: false,
-                    all: true,
+                    pageSize: '10',
+                    noteId: NOTE_ID,
                   }), 
                   null,
                   'GET'
