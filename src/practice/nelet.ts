@@ -275,11 +275,11 @@ export async function quickFinish(options: NELETOptions) {
 
               if (hasCommented) {
                 console.log(`${chalk.green('Skip Comment')}`)
-              } else {
+              } else if (validList.length > 0) {
                 console.log(`${chalk.green('SAVECOMMENT')}`)
                 await invoke('https://www.pupedu.cn/app/note/comments/saveComment',{
                     noteId: NOTE_ID,
-                    content: comments[Math.floor(comments.length * Math.random())]
+                    content: validList[Math.floor(validList.length * Math.random())]['content']
                   }
                 )
               }
